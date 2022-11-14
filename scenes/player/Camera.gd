@@ -3,13 +3,16 @@ extends Camera
 const MIN_LOOK = -90
 const MAX_LOOK = 60
 
-const RIG_MOVE_THRESHOLD_LEFT = 100
-const RIG_MOVE_THRESHOLD_RIGHT = 270
+const RIG_MOVE_THRESHOLD_LEFT = 50
+const RIG_MOVE_THRESHOLD_RIGHT = -50
+
+const RIG_ROTATE_TO_CAMERA_SPEED = 50
 
 var MOUSE_SENSITIVITY = 10
-onready var rig = $"../deemongal"
-onready var pivot = $".."
-onready var skeleton = rig.get_child(0).get_child(0)
+onready var rig = $"../../deemongal"
+onready var player_pivot = $"../.."
+onready var camera_pivot = $".."
+onready var skeleton = $"../../deemongal/Armature/Skeleton"
 
 var mouse_event
 var intro_playing = false
@@ -31,6 +34,9 @@ func _process(delta):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED and mouse_event:
 			process_camera_movement(delta)
+	
+	# rotate rig toward running direction
+	rig.rotation_degrees.y = move_toward(rig.rotation_degrees.y, camera_pivot.rotation_degrees.y, RIG_ROTATE_TO_CAMERA_SPEED * delta)
 
 func intro_done():
 	intro_playing = false
@@ -39,20 +45,24 @@ func intro_done():
 	$camera_animation.play("RESET")
 
 func process_camera_movement(delta):
-	var rot = Vector3(mouse_event.relative.x, mouse_event.relative.y, 0) * MOUSE_SENSITIVITY * delta
-	var rig_threshold = abs(rig.rotation_degrees.y - rotation_degrees.y)	
+	var rotating_camera = false
+	var rotation_strength = Vector3(mouse_event.relative.x, mouse_event.relative.y, 0) * MOUSE_SENSITIVITY * delta
+	var camera_rotation_y = camera_pivot.rotation_degrees.y
 	
-	rotation_degrees.x -= rot.y
+	# rotate the camera up and down
+	rotation_degrees.x -= rotation_strength.y
 	rotation_degrees.x = clamp(rotation_degrees.x, MIN_LOOK, MAX_LOOK)
 	
-	if rig_threshold >= RIG_MOVE_THRESHOLD_RIGHT and rot.x > 0:
-		pivot.rotation_degrees.y -= rot.x
-	elif rig_threshold <= RIG_MOVE_THRESHOLD_LEFT and rot.x < 0:
-		pivot.rotation_degrees.y -= rot.x
+	# rotate the model if the camera rotates far enough
+	# if the camera is moving left
+	if camera_rotation_y >= RIG_MOVE_THRESHOLD_LEFT and rotation_strength.x < 0:
+		player_pivot.rotation_degrees.y -= rotation_strength.x
+	# if the camera is moving right
+	elif camera_rotation_y <= RIG_MOVE_THRESHOLD_RIGHT and rotation_strength.x > 0:
+		player_pivot.rotation_degrees.y -= rotation_strength.x
+	else: 
+		camera_pivot.rotation_degrees.y -= rotation_strength.x
 	
-	elif rig_threshold < RIG_MOVE_THRESHOLD_RIGHT or rig_threshold > RIG_MOVE_THRESHOLD_LEFT:
-		rotation_degrees.y -= rot.x
-			
 	mouse_event = false
 
 func _input(event):
